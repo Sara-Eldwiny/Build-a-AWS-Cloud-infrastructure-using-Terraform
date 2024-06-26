@@ -1,0 +1,74 @@
+
+trigger:
+  branches:
+    include:
+      - '*'
+
+pr:
+  branches:
+    include:
+      - '*'
+
+pool:
+  name: aws-self-hosted
+
+
+stages:
+- stage: Plan
+  displayName: Plan
+  jobs:
+  - job: Plan
+    displayName: Plan
+    steps:
+    - checkout: self 
+    - script: |
+        sudo apt-get update
+        sudo apt-get install -y unzip
+      displayName: 'Install Unzip'
+    - task: TerraformInstaller@1
+      inputs:
+        terraformVersion: 'latest'
+    - task: TerraformTaskV4@4
+      inputs:
+        provider: 'aws'
+        command: 'init'
+        backendServiceAWS: 'AWS for terraform'
+        backendAWSBucketName: 'buckethterraform'
+        backendAWSKey: 'terraformstate'
+
+    - task: TerraformTaskV4@4
+      inputs:
+        provider: 'aws'
+        command: 'plan'
+        environmentServiceNameAWS: 'AWS for terraform'
+
+    condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest')) 
+
+- stage: Apply
+  displayName: Apply
+  jobs:
+  - job: Apply
+    displayName: Apply
+    steps:
+    - checkout: self
+    - script: |
+        sudo apt-get update
+        sudo apt-get install -y unzip
+      displayName: 'Install Unzip'
+    - task: TerraformInstaller@1
+      inputs:
+        terraformVersion: 'latest'
+    - task: TerraformTaskV4@4
+      inputs:
+        provider: 'aws'
+        command: 'init'
+        backendServiceAWS: 'AWS for terraform'
+        backendAWSBucketName: 'buckethterraform'
+        backendAWSKey: 'terraformstate'
+    - task: TerraformTaskV4@4
+      inputs:
+        provider: 'aws'
+        command: 'apply'
+        environmentServiceNameAWS: 'AWS for terraform'
+
+    condition: and(succeeded(), eq(variables['Build.Reason'], 'IndividualCI'))
